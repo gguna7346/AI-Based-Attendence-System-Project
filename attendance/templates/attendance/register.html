@@ -1,0 +1,149 @@
+{% extends "attendance/base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-5 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Student Details</h5>
+                {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label" for="name">Full name</label>
+                        <input type="text" class="form-control" name="name" id="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="roll_no">Roll number</label>
+                        <input type="text" class="form-control" name="roll_no" id="roll_no" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="email">Email (optional)</label>
+                        <input type="email" class="form-control" name="email" id="email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="department">Department / Class (optional)</label>
+                        <input type="text" class="form-control" name="department" id="department">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save student &amp; start capture</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        {% if student %}
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Capture Face Images</h5>
+                    <p class="text-muted mb-2">
+                        Student: <strong>{{ student.roll_no }} - {{ student.name }}</strong>
+                    </p>
+                    <p class="text-muted">
+                        Allow camera access, then click <strong>Capture &amp; Save</strong> multiple times
+                        (e.g. 10–20 images with slight head movements).
+                    </p>
+
+                    <div class="mb-3">
+                        <video id="video" width="100%" autoplay playsinline class="border rounded bg-dark"></video>
+                        <canvas id="canvas" class="d-none"></canvas>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <button id="captureBtn" class="btn btn-success">Capture &amp; Save</button>
+                        <span class="text-muted">Captured images: <span id="captureCount">0</span></span>
+                    </div>
+                    <div id="captureStatus" class="small text-muted"></div>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                Fill in the student details on the left and submit to start webcam capture.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if student %}
+<script>
+    (function () {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const captureCountSpan = document.getElementById('captureCount');
+        const captureStatus = document.getElementById('captureStatus');
+        let captureCount = 0;
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({
+                video: {width: {ideal: 640}, height: {ideal: 480}, facingMode: 'user'}
+            })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(err => {
+                    captureStatus.textContent = 'Could not access camera: ' + err;
+                    captureStatus.classList.add('text-danger');
+                });
+        } else {
+            captureStatus.textContent = 'Webcam not supported in this browser.';
+            captureStatus.classList.add('text-danger');
+        }
+
+        captureBtn.addEventListener('click', async () => {
+            if (!video.videoWidth || !video.videoHeight) {
+                captureStatus.textContent = 'Camera not ready yet. Please wait a moment.';
+                captureStatus.classList.add('text-warning');
+                return;
+            }
+
+            const CAPTURE_MAX_WIDTH = 480;
+            const targetWidth = Math.min(CAPTURE_MAX_WIDTH, video.videoWidth);
+            const targetHeight = Math.round((targetWidth / video.videoWidth) * video.videoHeight);
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            captureStatus.textContent = 'Uploading image...';
+            captureStatus.classList.remove('text-danger', 'text-success', 'text-warning');
+
+            try {
+                const response = await fetch("{% url 'attendance:capture_face' student.id %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({image_data: dataUrl})
+                });
+                const result = await response.json();
+                if (result.success) {
+                    captureCount += 1;
+                    captureCountSpan.textContent = String(captureCount);
+                    if (result.warning) {
+                        captureStatus.textContent = result.warning;
+                        captureStatus.classList.add('text-warning');
+                    } else {
+                        captureStatus.textContent = 'Image saved successfully.';
+                        captureStatus.classList.add('text-success');
+                    }
+                } else {
+                    captureStatus.textContent = 'Error: ' + (result.error || 'Unknown error');
+                    captureStatus.classList.add('text-danger');
+                }
+            } catch (err) {
+                captureStatus.textContent = 'Network error: ' + err;
+                captureStatus.classList.add('text-danger');
+            }
+        });
+    })();
+</script>
+{% endif %}
+{% endblock %}
+

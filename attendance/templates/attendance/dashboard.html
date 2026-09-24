@@ -1,0 +1,130 @@
+{% extends "attendance/base.html" %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Total Students</h6>
+                <p class="display-5 mb-0">{{ total_students }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Present Today ({{ today_date }})</h6>
+                <p class="display-5 mb-0">{{ today_present }}</p>
+                <p class="text-muted small mb-0">
+                    Records today: {{ today_total_records }}
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Quick Actions</h6>
+                <div class="d-flex flex-column gap-2">
+                    <a href="{% url 'attendance:register_student' %}" class="btn btn-primary btn-sm">Register new student</a>
+                    <a href="{% url 'attendance:train_model' %}" class="btn btn-outline-secondary btn-sm">Train / update model</a>
+                    <a href="{% url 'attendance:manage_faces' %}" class="btn btn-outline-secondary btn-sm">Manage face images</a>
+                    <a href="{% url 'attendance:attendance' %}" class="btn btn-success btn-sm">Take attendance</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Average Attendance Rate</h6>
+                <p class="display-6 mb-0">{{ avg_attendance_rate }}%</p>
+                <p class="small text-muted mb-0">Based on {{ total_class_days }} class days</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">Predicted Next Week Attendance</h6>
+                <p class="display-6 mb-0">{{ predicted_overall_rate }}%</p>
+                <p class="small text-muted mb-0">Trend-adjusted forecast</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body">
+                <h6 class="text-muted mb-1">High Risk Students</h6>
+                <p class="display-6 mb-0">{{ high_risk_count }}</p>
+                <p class="small text-muted mb-0">Needs intervention</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title mb-0">Smart Attendance Insights (Prediction AI)</h5>
+            <span class="badge text-bg-dark">Auto-generated</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>Attendance %</th>
+                    <th>Last 7 Days %</th>
+                    <th>Trend</th>
+                    <th>Predicted Next Week %</th>
+                    <th>Risk</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in insights_rows %}
+                    <tr>
+                        <td>{{ row.student.roll_no }}</td>
+                        <td>{{ row.student.name }}</td>
+                        <td>{{ row.attendance_rate }}</td>
+                        <td>{{ row.last_7_rate }}</td>
+                        <td>
+                            {% if row.trend >= 0 %}
+                                +{{ row.trend }}
+                            {% else %}
+                                {{ row.trend }}
+                            {% endif %}
+                        </td>
+                        <td>{{ row.predicted_next_week_rate }}</td>
+                        <td>
+                            {% if row.risk == "High Risk" %}
+                                <span class="badge text-bg-danger">{{ row.risk }}</span>
+                            {% elif row.risk == "Medium Risk" %}
+                                <span class="badge text-bg-warning">{{ row.risk }}</span>
+                            {% else %}
+                                <span class="badge text-bg-success">{{ row.risk }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-muted">No attendance data yet to generate predictions.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info mb-0">
+    Use the <strong>Register</strong> tab to add students and capture images,
+    then <strong>Train Model</strong>, and finally use <strong>Attendance</strong> to mark
+    daily attendance via webcam.
+</div>
+{% endblock %}
+

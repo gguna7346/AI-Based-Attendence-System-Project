@@ -1,0 +1,892 @@
+{% extends "attendance/base.html" %}
+
+
+
+{% block content %}
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+
+            <div>
+
+                <h5 class="card-title mb-1">Manage Face Images</h5>
+
+                <p class="text-muted mb-0">
+                    View, delete, or replace training photos for each student. You can also delete a
+                    student completely (name, roll number, all images, and attendance history).
+                </p>
+
+            </div>
+
+            <a href="{% url 'attendance:train_model' %}" class="btn btn-outline-primary btn-sm">Run Training</a>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+{% if students %}
+
+    <div class="accordion" id="studentsAccordion">
+
+        {% for student in students %}
+
+            <div class="accordion-item shadow-sm mb-3 border-0" id="student-item-{{ student.id }}">
+
+                <h2 class="accordion-header" id="heading-{{ student.id }}">
+
+                    <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button"
+
+                            data-bs-toggle="collapse" data-bs-target="#collapse-{{ student.id }}"
+
+                            aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+
+                            aria-controls="collapse-{{ student.id }}">
+
+                        <span class="me-2"><strong>{{ student.roll_no }}</strong> — {{ student.name }}</span>
+
+                        <span class="badge text-bg-secondary image-count-badge" data-student-id="{{ student.id }}">
+
+                            {{ student.num_images }} image{{ student.num_images|pluralize }}
+
+                        </span>
+
+                    </button>
+
+                </h2>
+
+                <div id="collapse-{{ student.id }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}"
+
+                     aria-labelledby="heading-{{ student.id }}" data-bs-parent="#studentsAccordion"
+
+                     data-student-id="{{ student.id }}">
+
+                    <div class="accordion-body">
+
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
+                            <div>
+                                <strong>{{ student.name }}</strong>
+                                <span class="text-muted">(Roll: {{ student.roll_no }})</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger delete-student-btn"
+                                    data-student-id="{{ student.id }}"
+                                    data-student-name="{{ student.name }}"
+                                    data-student-roll="{{ student.roll_no }}">
+                                Delete student completely
+                            </button>
+                        </div>
+
+                        <div class="row g-3 mb-4" id="gallery-{{ student.id }}">
+
+                            {% for face in student.face_images.all %}
+
+                                <div class="col-6 col-md-4 col-lg-3" id="face-card-{{ face.id }}" data-student-id="{{ student.id }}">
+
+                                    <div class="card h-100 shadow-sm">
+
+                                        <img src="{{ face.image.url }}" class="card-img-top face-thumb" alt="Face image">
+
+                                        <div class="card-body p-2">
+
+                                            <p class="small text-muted mb-2">
+
+                                                {{ face.created_at|date:"M d, Y H:i" }}
+
+                                                {% if face.embedding %}
+
+                                                    <span class="badge text-bg-success ms-1">Trained</span>
+
+                                                {% else %}
+
+                                                    <span class="badge text-bg-warning ms-1">Not trained</span>
+
+                                                {% endif %}
+
+                                            </p>
+
+                                            <div class="d-grid gap-1">
+
+                                                <button type="button" class="btn btn-sm btn-outline-primary replace-btn"
+
+                                                        data-face-id="{{ face.id }}"
+
+                                                        data-student-name="{{ student.name }}">
+
+                                                    Replace
+
+                                                </button>
+
+                                                <button type="button" class="btn btn-sm btn-outline-danger delete-btn"
+
+                                                        data-face-id="{{ face.id }}"
+
+                                                        data-student-id="{{ student.id }}">
+
+                                                    Delete
+
+                                                </button>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            {% empty %}
+
+                                <div class="col-12 text-muted no-images-msg" id="no-images-{{ student.id }}">
+
+                                    No images captured yet for this student.
+
+                                </div>
+
+                            {% endfor %}
+
+                        </div>
+
+
+
+                        <div class="card bg-light border-0">
+
+                            <div class="card-body">
+
+                                <h6 class="card-title">Add new image</h6>
+
+                                <div class="row g-3 align-items-start">
+
+                                    <div class="col-lg-6">
+
+                                        <video class="add-video w-100 border rounded bg-dark" data-student-id="{{ student.id }}"
+
+                                               autoplay playsinline></video>
+
+                                        <canvas class="add-canvas d-none" data-student-id="{{ student.id }}"></canvas>
+
+                                    </div>
+
+                                    <div class="col-lg-6">
+
+                                        <p class="small text-muted mb-2">
+
+                                            Capture a new photo or upload an image file. Run training afterward if needed.
+
+                                        </p>
+
+                                        <div class="d-flex flex-wrap gap-2 mb-2">
+
+                                            <button type="button" class="btn btn-success btn-sm capture-add-btn"
+
+                                                    data-student-id="{{ student.id }}">
+
+                                                Capture &amp; Add
+
+                                            </button>
+
+                                            <label class="btn btn-outline-secondary btn-sm mb-0">
+
+                                                Upload file
+
+                                                <input type="file" class="d-none upload-input" accept="image/*"
+
+                                                       data-student-id="{{ student.id }}">
+
+                                            </label>
+
+                                        </div>
+
+                                        <div class="small add-status text-muted" data-student-id="{{ student.id }}"></div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% endfor %}
+
+    </div>
+
+{% else %}
+
+    <div class="alert alert-info">
+
+        No students registered yet.
+
+        <a href="{% url 'attendance:register_student' %}">Register a student</a> first.
+
+    </div>
+
+{% endif %}
+
+
+
+<div class="modal fade" id="replaceModal" tabindex="-1" aria-labelledby="replaceModalLabel" aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title" id="replaceModalLabel">Replace face image</h5>
+
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <p class="text-muted small mb-3" id="replaceStudentLabel"></p>
+
+                <video id="replaceVideo" class="w-100 border rounded bg-dark mb-3" autoplay playsinline></video>
+
+                <canvas id="replaceCanvas" class="d-none"></canvas>
+
+                <div class="d-flex flex-wrap gap-2">
+
+                    <button type="button" class="btn btn-primary" id="replaceCaptureBtn">Capture &amp; Replace</button>
+
+                    <label class="btn btn-outline-secondary mb-0">
+
+                        Upload file
+
+                        <input type="file" id="replaceFileInput" class="d-none" accept="image/*">
+
+                    </label>
+
+                </div>
+
+                <div id="replaceStatus" class="small text-muted mt-2"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<style>
+
+    .face-thumb {
+
+        height: 160px;
+
+        object-fit: cover;
+
+    }
+
+</style>
+
+{% endblock %}
+
+
+
+{% block extra_js %}
+
+<script>
+
+    (function () {
+
+        const CAPTURE_MAX_WIDTH = 480;
+
+
+
+        const replaceModalEl = document.getElementById('replaceModal');
+
+        const replaceModal = replaceModalEl ? new bootstrap.Modal(replaceModalEl) : null;
+
+        const replaceVideo = document.getElementById('replaceVideo');
+
+        const replaceCanvas = document.getElementById('replaceCanvas');
+
+        const replaceCaptureBtn = document.getElementById('replaceCaptureBtn');
+
+        const replaceFileInput = document.getElementById('replaceFileInput');
+
+        const replaceStatus = document.getElementById('replaceStatus');
+
+        const replaceStudentLabel = document.getElementById('replaceStudentLabel');
+
+
+
+        let replaceFaceId = null;
+
+        let replaceStream = null;
+
+        const videoStreams = new Map();
+
+        const camerasStarted = new Set();
+
+
+
+        function setStatus(el, message, type) {
+
+            if (!el) return;
+
+            el.textContent = message;
+
+            el.classList.remove('text-danger', 'text-success', 'text-warning', 'text-muted');
+
+            el.classList.add(type || 'text-muted');
+
+        }
+
+
+
+        async function startCamera(videoEl) {
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+
+                throw new Error('Webcam not supported in this browser.');
+
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+
+                video: {width: {ideal: 640}, height: {ideal: 480}, facingMode: 'user'}
+
+            });
+
+            videoEl.srcObject = stream;
+
+            await videoEl.play();
+
+            return stream;
+
+        }
+
+
+
+        function stopStream(stream) {
+
+            if (!stream) return;
+
+            stream.getTracks().forEach(track => track.stop());
+
+        }
+
+
+
+        function captureDataUrl(videoEl, canvasEl) {
+
+            const srcWidth = videoEl.videoWidth;
+
+            const srcHeight = videoEl.videoHeight;
+
+            if (!srcWidth || !srcHeight) {
+
+                throw new Error('Camera not ready yet.');
+
+            }
+
+            const targetWidth = Math.min(CAPTURE_MAX_WIDTH, srcWidth);
+
+            const targetHeight = Math.round((targetWidth / srcWidth) * srcHeight);
+
+            canvasEl.width = targetWidth;
+
+            canvasEl.height = targetHeight;
+
+            canvasEl.getContext('2d').drawImage(videoEl, 0, 0, targetWidth, targetHeight);
+
+            return canvasEl.toDataURL('image/jpeg', 0.85);
+
+        }
+
+
+
+        function fileToDataUrl(file) {
+
+            return new Promise((resolve, reject) => {
+
+                const reader = new FileReader();
+
+                reader.onload = () => resolve(reader.result);
+
+                reader.onerror = () => reject(new Error('Could not read file.'));
+
+                reader.readAsDataURL(file);
+
+            });
+
+        }
+
+
+
+        async function postJson(url, payload) {
+
+            const response = await fetch(url, {
+
+                method: 'POST',
+
+                headers: {'Content-Type': 'application/json'},
+
+                body: JSON.stringify(payload)
+
+            });
+
+            let result;
+
+            try {
+
+                result = await response.json();
+
+            } catch (err) {
+
+                throw new Error('Server returned an unexpected response.');
+
+            }
+
+            if (!response.ok || !result.success) {
+
+                throw new Error(result.error || result.warning || 'Request failed.');
+
+            }
+
+            return result;
+
+        }
+
+
+
+        function countFaceCards(studentId) {
+
+            const gallery = document.getElementById(`gallery-${studentId}`);
+
+            if (!gallery) return 0;
+
+            return gallery.querySelectorAll('[id^="face-card-"]').length;
+
+        }
+
+
+
+        function updateImageCountBadge(studentId) {
+
+            const count = countFaceCards(studentId);
+
+            const badge = document.querySelector(`.image-count-badge[data-student-id="${studentId}"]`);
+
+            if (badge) {
+
+                badge.textContent = count + ' image' + (count !== 1 ? 's' : '');
+
+            }
+
+            const gallery = document.getElementById(`gallery-${studentId}`);
+
+            if (gallery && count === 0 && !gallery.querySelector('.no-images-msg')) {
+
+                const msg = document.createElement('div');
+
+                msg.className = 'col-12 text-muted no-images-msg';
+
+                msg.id = `no-images-${studentId}`;
+
+                msg.textContent = 'No images captured yet for this student.';
+
+                gallery.appendChild(msg);
+
+            }
+
+        }
+
+
+
+        async function startStudentCamera(studentId) {
+
+            if (camerasStarted.has(studentId)) return;
+
+            const video = document.querySelector(`.add-video[data-student-id="${studentId}"]`);
+
+            if (!video) return;
+
+            camerasStarted.add(studentId);
+
+            try {
+
+                const stream = await startCamera(video);
+
+                videoStreams.set(studentId, stream);
+
+            } catch (err) {
+
+                const statusEl = document.querySelector(`.add-status[data-student-id="${studentId}"]`);
+
+                setStatus(statusEl, err.message, 'text-danger');
+
+            }
+
+        }
+
+
+
+        document.querySelectorAll('.accordion-collapse').forEach((collapseEl) => {
+
+            const studentId = collapseEl.dataset.studentId;
+
+            collapseEl.addEventListener('shown.bs.collapse', () => startStudentCamera(studentId));
+
+            if (collapseEl.classList.contains('show')) {
+
+                startStudentCamera(studentId);
+
+            }
+
+        });
+
+
+
+        document.body.addEventListener('click', async (event) => {
+            const deleteStudentBtn = event.target.closest('.delete-student-btn');
+            if (deleteStudentBtn) {
+                const studentId = deleteStudentBtn.dataset.studentId;
+                const studentName = deleteStudentBtn.dataset.studentName || 'this student';
+                const studentRoll = deleteStudentBtn.dataset.studentRoll || '';
+                const confirmMsg =
+                    `Delete ${studentName} (roll ${studentRoll}) completely?\n\n` +
+                    'This will permanently remove:\n' +
+                    '- Student name and roll number\n' +
+                    '- All trained face images\n' +
+                    '- All attendance records for this student\n\n' +
+                    'This cannot be undone.';
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+                deleteStudentBtn.disabled = true;
+                try {
+                    const result = await postJson(`/student/${studentId}/delete/`, {});
+                    const stream = videoStreams.get(studentId);
+                    stopStream(stream);
+                    videoStreams.delete(studentId);
+                    camerasStarted.delete(studentId);
+                    const studentItem = document.getElementById(`student-item-${studentId}`);
+                    if (studentItem) {
+                        studentItem.remove();
+                    }
+                    const accordion = document.getElementById('studentsAccordion');
+                    if (accordion && accordion.children.length === 0) {
+                        accordion.outerHTML =
+                            '<div class="alert alert-info">No students registered yet. ' +
+                            '<a href="/register/">Register a student</a> first.</div>';
+                    }
+                    if (result.message) {
+                        alert(result.message);
+                    }
+                } catch (err) {
+                    alert(err.message);
+                    deleteStudentBtn.disabled = false;
+                }
+                return;
+            }
+
+            const deleteBtn = event.target.closest('.delete-btn');
+
+            if (deleteBtn) {
+
+                const faceId = deleteBtn.dataset.faceId;
+
+                const studentId = deleteBtn.dataset.studentId;
+
+                if (!confirm('Delete this face image? This cannot be undone.')) {
+
+                    return;
+
+                }
+
+                deleteBtn.disabled = true;
+
+                try {
+
+                    await postJson(`/face-image/${faceId}/delete/`, {});
+
+                    const card = document.getElementById(`face-card-${faceId}`);
+
+                    if (card) {
+
+                        card.remove();
+
+                    }
+
+                    updateImageCountBadge(studentId);
+
+                } catch (err) {
+
+                    alert(err.message);
+
+                    deleteBtn.disabled = false;
+
+                }
+
+                return;
+
+            }
+
+
+
+            const replaceBtn = event.target.closest('.replace-btn');
+
+            if (replaceBtn) {
+
+                replaceFaceId = replaceBtn.dataset.faceId;
+
+                replaceStudentLabel.textContent = 'Updating image for ' + (replaceBtn.dataset.studentName || 'student');
+
+                setStatus(replaceStatus, 'Allow camera access, then capture or upload a replacement.', 'text-muted');
+
+                replaceFileInput.value = '';
+
+                replaceModal.show();
+
+                try {
+
+                    stopStream(replaceStream);
+
+                    replaceStream = await startCamera(replaceVideo);
+
+                } catch (err) {
+
+                    setStatus(replaceStatus, err.message, 'text-danger');
+
+                }
+
+            }
+
+        });
+
+
+
+        async function handleReplace(imageData) {
+
+            if (!replaceFaceId) return;
+
+            setStatus(replaceStatus, 'Uploading replacement...', 'text-muted');
+
+            replaceCaptureBtn.disabled = true;
+
+            try {
+
+                const result = await postJson(`/face-image/${replaceFaceId}/update/`, {image_data: imageData});
+
+                const card = document.getElementById(`face-card-${replaceFaceId}`);
+
+                if (card) {
+
+                    const img = card.querySelector('img');
+
+                    if (img) {
+
+                        img.src = result.image_url + '?t=' + Date.now();
+
+                    }
+
+                    const badgeParent = card.querySelector('.card-body p');
+
+                    if (badgeParent) {
+
+                        badgeParent.innerHTML = 'Just updated ' + (
+
+                            result.has_embedding
+
+                                ? '<span class="badge text-bg-success ms-1">Trained</span>'
+
+                                : '<span class="badge text-bg-warning ms-1">Not trained</span>'
+
+                        );
+
+                    }
+
+                }
+
+                const message = result.warning || 'Image replaced successfully.';
+
+                setStatus(replaceStatus, message, result.warning ? 'text-warning' : 'text-success');
+
+                setTimeout(() => replaceModal.hide(), 900);
+
+            } catch (err) {
+
+                setStatus(replaceStatus, err.message, 'text-danger');
+
+            } finally {
+
+                replaceCaptureBtn.disabled = false;
+
+            }
+
+        }
+
+
+
+        replaceCaptureBtn.addEventListener('click', async () => {
+
+            try {
+
+                const dataUrl = captureDataUrl(replaceVideo, replaceCanvas);
+
+                await handleReplace(dataUrl);
+
+            } catch (err) {
+
+                setStatus(replaceStatus, err.message, 'text-danger');
+
+            }
+
+        });
+
+
+
+        replaceFileInput.addEventListener('change', async () => {
+
+            const file = replaceFileInput.files[0];
+
+            if (!file) return;
+
+            try {
+
+                const dataUrl = await fileToDataUrl(file);
+
+                await handleReplace(dataUrl);
+
+            } catch (err) {
+
+                setStatus(replaceStatus, err.message, 'text-danger');
+
+            }
+
+        });
+
+
+
+        replaceModalEl.addEventListener('hidden.bs.modal', () => {
+
+            stopStream(replaceStream);
+
+            replaceStream = null;
+
+            replaceFaceId = null;
+
+        });
+
+
+
+        document.querySelectorAll('.capture-add-btn').forEach((btn) => {
+
+            btn.addEventListener('click', async () => {
+
+                const studentId = btn.dataset.studentId;
+
+                const video = document.querySelector(`.add-video[data-student-id="${studentId}"]`);
+
+                const canvas = document.querySelector(`.add-canvas[data-student-id="${studentId}"]`);
+
+                const statusEl = document.querySelector(`.add-status[data-student-id="${studentId}"]`);
+
+                btn.disabled = true;
+
+                setStatus(statusEl, 'Capturing...', 'text-muted');
+
+                try {
+
+                    const dataUrl = captureDataUrl(video, canvas);
+
+                    const result = await postJson(`/capture-face/${studentId}/`, {image_data: dataUrl});
+
+                    const message = result.warning || 'Image added successfully.';
+
+                    setStatus(statusEl, message, result.warning ? 'text-warning' : 'text-success');
+
+                    setTimeout(() => window.location.reload(), 700);
+
+                } catch (err) {
+
+                    setStatus(statusEl, err.message, 'text-danger');
+
+                } finally {
+
+                    btn.disabled = false;
+
+                }
+
+            });
+
+        });
+
+
+
+        document.querySelectorAll('.upload-input').forEach((input) => {
+
+            input.addEventListener('change', async () => {
+
+                const studentId = input.dataset.studentId;
+
+                const statusEl = document.querySelector(`.add-status[data-student-id="${studentId}"]`);
+
+                const file = input.files[0];
+
+                if (!file) return;
+
+                setStatus(statusEl, 'Uploading...', 'text-muted');
+
+                try {
+
+                    const dataUrl = await fileToDataUrl(file);
+
+                    const result = await postJson(`/capture-face/${studentId}/`, {image_data: dataUrl});
+
+                    const message = result.warning || 'Image added successfully.';
+
+                    setStatus(statusEl, message, result.warning ? 'text-warning' : 'text-success');
+
+                    setTimeout(() => window.location.reload(), 700);
+
+                } catch (err) {
+
+                    setStatus(statusEl, err.message, 'text-danger');
+
+                } finally {
+
+                    input.value = '';
+
+                }
+
+            });
+
+        });
+
+
+
+        window.addEventListener('beforeunload', () => {
+
+            stopStream(replaceStream);
+
+            videoStreams.forEach(stream => stopStream(stream));
+
+        });
+
+    })();
+
+</script>
+
+{% endblock %}
+
+

@@ -1,0 +1,499 @@
+{% extends "attendance/base.html" %}
+
+
+
+{% block content %}
+
+<div class="row g-4">
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm mb-3">
+
+            <div class="card-body">
+
+                <h5 class="card-title">Take Attendance ({{ today_date }})</h5>
+
+                <p class="text-muted mb-2">
+
+                    Allow camera access. The system recognizes faces automatically and marks attendance.
+
+                </p>
+
+                <p class="small text-muted mb-3">
+
+                    First time today: blink once or turn your head slightly when scanning. If you are already marked, no extra action is needed.
+
+                </p>
+
+                <div class="mb-3">
+
+                    <video id="attVideo" width="100%" autoplay playsinline class="border rounded bg-dark"></video>
+
+                    <canvas id="attCanvas" class="d-none"></canvas>
+
+                </div>
+
+                <div id="attStatus" class="small mt-2 text-muted">Starting camera…</div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+
+                    <h5 class="card-title mb-0">Attendance Records</h5>
+
+                    <form method="get" class="d-flex align-items-center gap-2">
+
+                        <label for="dateFilter" class="small text-muted mb-0">Date:</label>
+
+                        <input
+
+                            type="date"
+
+                            id="dateFilter"
+
+                            name="date"
+
+                            class="form-control form-control-sm"
+
+                            value="{{ selected_date|date:'Y-m-d' }}"
+
+                        >
+
+                        <button type="submit" class="btn btn-sm btn-outline-primary">View</button>
+
+                    </form>
+
+                </div>
+
+                <p class="small text-muted mb-3">Showing records for <strong>{{ selected_date }}</strong></p>
+
+                <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+
+                    <table class="table table-sm align-middle mb-0">
+
+                        <thead>
+
+                        <tr>
+
+                            <th>Date</th>
+
+                            <th>Time</th>
+
+                            <th>Roll No</th>
+
+                            <th>Name</th>
+
+                            <th>Status</th>
+
+                        </tr>
+
+                        </thead>
+
+                        <tbody id="recordsBody">
+
+                        {% for r in recent_records %}
+
+                            <tr data-student-id="{{ r.student.id }}">
+
+                                <td>{{ r.date }}</td>
+
+                                <td>{{ r.timestamp|time:"H:i:s" }}</td>
+
+                                <td>{{ r.student.roll_no }}</td>
+
+                                <td>{{ r.student.name }}</td>
+
+                                <td>{{ r.get_status_display }}</td>
+
+                            </tr>
+
+                        {% empty %}
+
+                            <tr id="recordsEmptyRow">
+
+                                <td colspan="5" class="text-muted">No attendance records for selected date.</td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block extra_js %}
+
+<script>
+
+    (function () {
+
+        const video = document.getElementById('attVideo');
+
+        const canvas = document.getElementById('attCanvas');
+
+        const statusEl = document.getElementById('attStatus');
+
+        const recordsBody = document.getElementById('recordsBody');
+
+        const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
+
+        const todayDate = "{{ today_date|date:'Y-m-d' }}";
+
+
+
+        const SCAN_INTERVAL_MS = 3500;
+
+        const COOLDOWN_AFTER_SUCCESS_MS = 15000;
+
+        const FRAME_COUNT = 5;
+
+        const FRAME_INTERVAL_MS = 70;
+
+
+
+        let recognizing = false;
+
+        let intervalId = null;
+
+        let cooldownUntil = 0;
+
+        const markedStudentIds = new Set();
+
+
+
+        if (selectedDate === todayDate) {
+
+            recordsBody.querySelectorAll('tr[data-student-id]').forEach((row) => {
+
+                markedStudentIds.add(row.dataset.studentId);
+
+            });
+
+        }
+
+
+
+        function setStatus(message, type) {
+
+            statusEl.textContent = message;
+
+            statusEl.classList.remove('text-danger', 'text-success', 'text-warning', 'text-muted');
+
+            statusEl.classList.add(type || 'text-muted');
+
+        }
+
+
+
+        function startAutoRecognition() {
+
+            if (intervalId !== null) {
+
+                return;
+
+            }
+
+            setTimeout(() => {
+
+                if (!recognizing) {
+
+                    recognizeOnce();
+
+                }
+
+            }, 600);
+
+            intervalId = setInterval(() => {
+
+                if (!recognizing && Date.now() >= cooldownUntil) {
+
+                    recognizeOnce();
+
+                }
+
+            }, SCAN_INTERVAL_MS);
+
+        }
+
+
+
+        function applySuccess(student, alreadyMarked) {
+
+            markedStudentIds.add(String(student.id));
+
+            cooldownUntil = Date.now() + COOLDOWN_AFTER_SUCCESS_MS;
+
+
+
+            if (alreadyMarked) {
+
+                setStatus('Already marked today: ' + student.roll_no + ' — ' + student.name, 'text-success');
+
+            } else {
+
+                setStatus('Marked present: ' + student.roll_no + ' — ' + student.name, 'text-success');
+
+
+
+                if (selectedDate === todayDate) {
+
+                    const emptyRow = document.getElementById('recordsEmptyRow');
+
+                    if (emptyRow) {
+
+                        emptyRow.remove();
+
+                    }
+
+                    const now = new Date();
+
+                    const timeStr = now.toTimeString().slice(0, 8);
+
+                    const tr = document.createElement('tr');
+
+                    tr.dataset.studentId = String(student.id);
+
+                    tr.innerHTML =
+
+                        '<td>' + todayDate + '</td>' +
+
+                        '<td>' + timeStr + '</td>' +
+
+                        '<td>' + student.roll_no + '</td>' +
+
+                        '<td>' + student.name + '</td>' +
+
+                        '<td>Present</td>';
+
+                    recordsBody.insertBefore(tr, recordsBody.firstChild);
+
+                }
+
+            }
+
+        }
+
+
+
+        async function recognizeOnce() {
+
+            if (!video.videoWidth || !video.videoHeight) {
+
+                setStatus('Camera not ready yet. Please wait a moment.', 'text-warning');
+
+                return;
+
+            }
+
+
+
+            recognizing = true;
+
+
+
+            const srcWidth = video.videoWidth;
+
+            const targetWidth = Math.min(480, srcWidth);
+
+            const targetHeight = Math.round((targetWidth / srcWidth) * video.videoHeight);
+
+            canvas.width = targetWidth;
+
+            canvas.height = targetHeight;
+
+            const ctx = canvas.getContext('2d');
+
+
+
+            const frames = [];
+
+            for (let i = 0; i < FRAME_COUNT; i++) {
+
+                ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+                frames.push(canvas.toDataURL('image/jpeg', 0.72));
+
+                if (i < FRAME_COUNT - 1) {
+
+                    await new Promise(r => setTimeout(r, FRAME_INTERVAL_MS));
+
+                }
+
+            }
+
+
+
+            if (!statusEl.classList.contains('text-success')) {
+
+                setStatus('Recognizing…', 'text-muted');
+
+            }
+
+
+
+            try {
+
+                const response = await fetch("{% url 'attendance:mark_attendance' %}", {
+
+                    method: 'POST',
+
+                    headers: {'Content-Type': 'application/json'},
+
+                    body: JSON.stringify({frames: frames, image_data: frames[0]})
+
+                });
+
+
+
+                let result = {};
+
+                try {
+
+                    result = await response.json();
+
+                } catch (parseErr) {
+
+                    throw new Error('Unexpected server response.');
+
+                }
+
+
+
+                if (result.success) {
+
+                    applySuccess(result.student, !!result.already_marked);
+
+                    return;
+
+                }
+
+
+
+                if (response.status === 403 && result.liveness_failed) {
+
+                    if (!statusEl.classList.contains('text-success')) {
+
+                        setStatus('Blink once or move your head slightly, then hold still.', 'text-warning');
+
+                    }
+
+                    return;
+
+                }
+
+
+
+                const err = result.error || '';
+
+                if (err === 'No clear face detected. Please try again.') {
+
+                    if (!statusEl.classList.contains('text-success')) {
+
+                        setStatus('Look at the camera…', 'text-muted');
+
+                    }
+
+                    return;
+
+                }
+
+                if (err && err.indexOf('Face not recognized') === 0) {
+
+                    if (!statusEl.classList.contains('text-success')) {
+
+                        setStatus('Face not recognized. Register and train this student first.', 'text-warning');
+
+                    }
+
+                    return;
+
+                }
+
+                if (err) {
+
+                    setStatus('Error: ' + err, 'text-danger');
+
+                }
+
+            } catch (err) {
+
+                if (!statusEl.classList.contains('text-success')) {
+
+                    setStatus('Network error. Retrying…', 'text-warning');
+
+                }
+
+            } finally {
+
+                recognizing = false;
+
+            }
+
+        }
+
+
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+
+            navigator.mediaDevices.getUserMedia({
+
+                video: {width: {ideal: 640}, height: {ideal: 480}, facingMode: 'user'}
+
+            })
+
+                .then(stream => {
+
+                    video.srcObject = stream;
+
+                    video.play();
+
+                    setStatus('Camera ready. Scanning for faces…', 'text-muted');
+
+                    startAutoRecognition();
+
+                })
+
+                .catch(err => {
+
+                    setStatus('Could not access camera: ' + err, 'text-danger');
+
+                });
+
+        } else {
+
+            setStatus('Webcam not supported in this browser.', 'text-danger');
+
+        }
+
+    })();
+
+</script>
+
+{% endblock %}
+
+

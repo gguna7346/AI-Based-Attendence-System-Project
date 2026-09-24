@@ -1,0 +1,70 @@
+{% extends "attendance/base.html" %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Train / Update Model</h5>
+        <p class="text-muted">
+            This will scan all captured face images, detect faces with OpenCV, and generate embeddings
+            for recognition. Run training again after adding new photos or when recognition accuracy is updated.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Run Training</button>
+            </form>
+            <a href="{% url 'attendance:manage_faces' %}" class="btn btn-outline-secondary">Manage face images</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Image Summary</h6>
+                <p class="mb-1">Total images: <strong>{{ total_images }}</strong></p>
+                <p class="mb-1">Newly processed this run: <strong>{{ processed }}</strong></p>
+                <p class="mb-1">Skipped (no face detected): <strong>{{ skipped }}</strong></p>
+                {% if cleared %}
+                    <p class="mb-0 text-warning">Cleared stale embeddings: <strong>{{ cleared }}</strong></p>
+                {% else %}
+                    <p class="mb-0">Cleared stale embeddings: <strong>0</strong></p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Students &amp; Captured Images</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Roll No</th>
+                            <th>Name</th>
+                            <th class="text-end">Images</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for s in students_with_counts %}
+                            <tr>
+                                <td>{{ s.roll_no }}</td>
+                                <td>{{ s.name }}</td>
+                                <td class="text-end">{{ s.num_images }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-muted">No students registered yet.</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
